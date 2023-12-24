@@ -48,7 +48,7 @@ app.post('/convertImage/File', upload.single('image'), async (req: Request, res:
       return res.status(400).send('No file uploaded');
     }
 
-    const outputPath = './image.png'; // Set the output path here
+    const outputPath = './image.jpeg'; // Set the output path here
     const dimensions = await getImageDimensionsFile(req.file);
     const width = dimensions.width;
     const height = dimensions.height;
