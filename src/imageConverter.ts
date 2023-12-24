@@ -1,15 +1,15 @@
 import * as path from 'path'
 import sharp = require('sharp');
-import { Request } from 'express';
+import { Request as File } from 'express';
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export async function getImageDimensions(req: Request): Promise<{ width: any, height: any }> {
+export async function getImageDimensionsFile(File: Express.Multer.File): Promise<{ width: any, height: any }> {
   try {
-    if (!req.file) {
+    if (!File) {
       throw new Error('No file provided');
     }
 
     // Read the image from the buffer and get metadata
-    const metadata = await sharp(req.file.buffer).metadata();
+    const metadata = await sharp(File.buffer).metadata();
     const { width, height } = metadata;
 
     return { width, height };
@@ -18,15 +18,20 @@ export async function getImageDimensions(req: Request): Promise<{ width: any, he
     throw error; // Rethrow the error to handle it in the calling code if needed
   }
 }
+export async function getImageDimensionsPath(imagePath: any): Promise<{ width: any, height: any }> {
+  const metadata = await sharp(imagePath).metadata();
+  const { width, height } = metadata;
+  return { width, height };
+}
 
-export async function convertJpegToPngWithSize(fileBuffer: Buffer, outputPath: string, width: number | null, height: number | null) {
+export async function convertJpegToPngFile(File: Express.Multer.File, outputPath: string, width: number | null, height: number | null) {
   try {
-    if (!fileBuffer) {
+    if (!File) {
       throw new Error('No file provided');
     }
 
     // Convert the image to PNG format and resize it to the specified dimensions
-    const sharpInstance = sharp(fileBuffer);
+    const sharpInstance = sharp(File.buffer);
 
     if (width !== null && height !== null) {
       sharpInstance.resize({ width, height });
@@ -39,6 +44,20 @@ export async function convertJpegToPngWithSize(fileBuffer: Buffer, outputPath: s
   } catch (error) {
     console.error('Error converting JPEG to PNG with specific size:', error);
     throw error; // Rethrow the error to handle it in the calling code if needed
+  }
+}
+
+export async function convertJpegToPngPath (imagePath:any, outputPath:string, width:number, height:number) {
+  try {
+    // Read the input JPEG image
+    const imageBuffer = await sharp(imagePath)
+    // Convert the image to PNG format and resize it to the specified dimensions
+    if (width !== null && height !== null) {
+      imageBuffer.resize({width, height})
+    }
+    imageBuffer.toFile(outputPath)
+  } catch (error) {
+    console.error('Error converting JPEG to PNG with specific size:', error)
   }
 }
 export function resizeDimensions(width: number, height: number): { newWidth: number, newHeight: number } {
