@@ -1,90 +1,121 @@
-import * as path from 'path'
-import sharp = require('sharp');
-import { Request as File } from 'express';
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export async function getImageDimensionsFile(File: Express.Multer.File): Promise<{ width: any, height: any }> {
-  try {
-    if (!File) {
-      throw new Error('No file provided');
-    }
+import express, { Request, Response } from 'express';
+import multer from 'multer';
+import { convertJpegToPngFile, getImageDimensionsFile, getImageDimensionsPath, convertJpegToPngPath } from './imageConverter';
+const { ChartJSNodeCanvas } = require('chartjs-node-canvas');
+const app = express();
+const port = 3000;
 
-    // Read the image from the buffer and get metadata
-    const metadata = await sharp(File.buffer).metadata();
-    const { width, height } = metadata;
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
 
-    return { width, height };
-  } catch (error) {
-    console.error('Error getting image dimensions:', error);
-    throw error; // Rethrow the error to handle it in the calling code if needed
+app.use(express.json());
+
+app.post('/chart', async (req, res) => {
+  const data = req.body;
+  if(!data || Object.keys(data).length === 0){
+    return res.status(400).send('Invalid data in the request body');
   }
-}
-export async function getImageDimensionsPath(imagePath: any): Promise<{ width: any, height: any }> {
-  const metadata = await sharp(imagePath).metadata();
-  const { width, height } = metadata;
-  return { width, height };
-}
 
-export async function convertJpegToPngFile(File: Express.Multer.File, outputPath: string, width: number | null, height: number | null) {
+  (async () => {
+    const width = 800; //px
+  const height = 600; //px
+  const chartJSNodeCanvas = new ChartJSNodeCanvas({ width, height });
+  const configuration = {
+    type: 'bar',
+    data: {
+      labels: ['low','medium','high','critical'],
+      datasets: [{
+        backgroundColor: ["green", "yellow","orange","red"],
+        data: Object.values(data)
+      }]
+    },
+    options: {
+      legend: {
+        display: false
+     },
+    }
+  };
+
+  const image = await chartJSNodeCanvas.renderToBuffer(configuration);
+  require('fs').writeFileSync('./chart.png', image);
+  })();
+  res.status(200).send('Chart created and saved as chart.png');
+});
+
+app.post('/convertImage/File', upload.single('image'), async (req: Request, res: Response) => {
   try {
-    if (!File) {
-      throw new Error('No file provided');
+    if (!req.file) {
+      return res.status(400).send('No file uploaded');
     }
 
-    // Convert the image to PNG format and resize it to the specified dimensions
-    const sharpInstance = sharp(File.buffer);
+    const outputPath = './image.png'; // Set the output path here
+    const dimensions = await getImageDimensionsFile(req.file);
+    const width = dimensions.width;
+    const height = dimensions.height;
+    await convertJpegToPngFile(req.file, outputPath, width, height);
 
-    if (width !== null && height !== null) {
-      sharpInstance.resize({ width, height });
-    }
-
-    // Save the resulting image to the output path
-    await sharpInstance.toFile(outputPath);
-
-    console.log('Image conversion completed successfully.');
+    res.status(200).send({
+      width: width,
+      height: height
+    });
   } catch (error) {
-    console.error('Error converting JPEG to PNG with specific size:', error);
-    throw error; // Rethrow the error to handle it in the calling code if needed
+    console.error('Error during image conversion:', error);
+    res.status(500).send('Internal Server Error');
   }
-}
-
-export async function convertJpegToPngPath (imagePath:any, outputPath:string, width:number, height:number) {
+});
+app.post('/convertImage/Path', upload.single('image'), async (req: Request, res: Response) => {
   try {
-    // Read the input JPEG image
-    const imageBuffer = await sharp(imagePath)
-    // Convert the image to PNG format and resize it to the specified dimensions
-    if (width !== null && height !== null) {
-      imageBuffer.resize({width, height})
-    }
-    imageBuffer.toFile(outputPath)
+    const inputPath = req.query.path
+    const outputPath = './imagePath.png'; // Set the output path here
+    const dimensions = await getImageDimensionsPath(inputPath);
+    const width = dimensions.width;
+    const height = dimensions.height;
+    await convertJpegToPngPath(inputPath, outputPath, width, height);
+
+    res.status(200).send({
+      width: width,
+      height: height
+    });
   } catch (error) {
-    console.error('Error converting JPEG to PNG with specific size:', error)
+    console.error('Error during image conversion:', error);
+    res.status(500).send('Internal Server Error');
   }
-}
-export function resizeDimensions(width: number, height: number): { newWidth: number, newHeight: number } {
-  const aspectRatio = width / height;
-  const newWidth = 960;
-  const newHeight = Math.round(newWidth / aspectRatio);
-  return { newWidth, newHeight };
-}
+});
+app.post('/ResizeImage/File', upload.single('image'), async (req: Request, res: Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).send('No file uploaded');
+    }
 
-// export async function convertImage(inputPath:string, outputPath:string) {
-//   const imagePath = inputPath;
-//   const outputImagePath = outputPath;
+    const dimensions = await getImageDimensionsFile(req.file);
+    const width = dimensions.width;
+    const height = dimensions.height;
 
-//   try {
-//     // Get the current image dimensions
-//     const { width, height } = await getImageDimensions(imagePath);
+    res.status(200).send({
+      width: width,
+      height: height
+    });
+  } catch (error) {
+    console.error('Error during image conversion:', error);
+    res.status(500).send('Internal Server Error');
+  }
+});
+app.post('/ResizeImage/Path', upload.single('image'), async (req: Request, res: Response) => {
+  try {
+    const inputPath = req.query.path
+    const dimensions = await getImageDimensionsPath(inputPath);
+    const width = dimensions.width;
+    const height = dimensions.height;
 
-//     // Resize the image dimensions
-//     const { newWidth, newHeight } = resizeDimensions(width, height);
-
-//     // Convert JPEG to PNG with the resized dimensions
-//     await convertJpegToPngWithSize(imagePath, outputImagePath, newWidth, newHeight);
-
-//     console.log('Image conversion completed successfully.');
-//   } catch (error) {
-//     console.error('Error during image conversion:', error);
-//   }
-// }
-
-
+    res.status(200).send({
+      width: width,
+      height: height
+    });
+  } catch (error) {
+    console.error('Error during image conversion:', error);
+    res.status(500).send('Internal Server Error');
+  }
+});
+app.listen(port, () => {
+  console.log(`Server is running on http://localhost:${port}`);
+});
