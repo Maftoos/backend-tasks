@@ -10,7 +10,7 @@ const upload = multer({ storage: storage });
 
 app.use(express.json());
 
-app.post('/chart', async (req, res) => {
+app.get('/chart', async (req, res) => {
   const data = req.body;
   if(!data || Object.keys(data).length === 0){
     return res.status(400).send('Invalid data in the request body');
@@ -63,6 +63,7 @@ app.post('/convertImage/File', upload.single('image'), async (req: Request, res:
     res.status(500).send('Internal Server Error');
   }
 });
+
 app.post('/convertImage/Path', upload.single('image'), async (req: Request, res: Response) => {
   try {
     const inputPath = req.query.path
@@ -81,7 +82,8 @@ app.post('/convertImage/Path', upload.single('image'), async (req: Request, res:
     res.status(500).send('Internal Server Error');
   }
 });
-app.post('/ResizeImage/File', upload.single('image'), async (req: Request, res: Response) => {
+
+app.post('/ImageDimensions/File', upload.single('image'), async (req: Request, res: Response) => {
   try {
     if (!req.file) {
       return res.status(400).send('No file uploaded');
@@ -100,7 +102,8 @@ app.post('/ResizeImage/File', upload.single('image'), async (req: Request, res: 
     res.status(500).send('Internal Server Error');
   }
 });
-app.post('/ResizeImage/Path', upload.single('image'), async (req: Request, res: Response) => {
+
+app.get('/ImageDimensions/Path', upload.single('image'), async (req: Request, res: Response) => {
   try {
     const inputPath = req.query.path
     const dimensions = await getImageDimensionsPath(inputPath);
